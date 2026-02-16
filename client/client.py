@@ -1,32 +1,35 @@
-import asyncio
+from contextlib import asynccontextmanager
 from fastmcp import Client
 from pydantic import BaseModel
 from fastapi import FastAPI
+from mcp_manager import mcp_hub
 
 
-app=FastAPI()
+@asynccontextmanager
+async def lifespan(app:FastAPI):
+    await mcp_hub.connect()
+    yield
+    
+    await mcp_hub.disconnect()
+    
 
-mcpClient=Client("http://127.0.0.1:8000/mcp")
+app=FastAPI(lifespan=lifespan)
 
 class weatherArgs(BaseModel):
     city:str
     
 @app.post('/weather')
 async def client(req:weatherArgs):
-    async with mcpClient as client:
-        print("service Started")        
-        await client.ping()
-
-        
-        result= await client.call_tool(
-            "get_weather",
-            {"city":req.city}
-        )
-        print(result)
-        return {
-            "source":"mcp",
-            "data":result
-        }
+    print("service Started")        
+    result= await mcp_hub.client.call_tool(
+        "get_weather",
+        {"city":req.city}
+    )
+    print(result)
+    return {
+        "source":"mcp",
+        "data":result
+    }
             
             
             
